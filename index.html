@@ -13,59 +13,107 @@
           <p class="eyebrow">2026학년도 전문대 수시 상담</p>
           <h1 id="page-title">내신으로 찾는 지원 가능 대학</h1>
           <p class="subtitle">
-            전년도 입결(일반) 자료의 평균·최저 등급을 기준으로 안정권, 적정권, 상향권을 분류합니다.
+            학기별 내신 등급을 입력한 뒤, 지역과 전형 조건으로 전년도 입결 기준 지원 가능 학과를 찾아보세요.
           </p>
         </div>
 
-        <form id="searchForm" class="filters">
-          <label class="field grade-field">
-            <span>내 내신 등급</span>
-            <input id="gradeInput" type="number" min="1" max="9" step="0.01" placeholder="예: 5.80" required />
-          </label>
+        <div class="tabs" role="tablist" aria-label="검색 단계">
+          <button id="gradeTabButton" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="gradeTab">
+            1. 내신 입력
+          </button>
+          <button id="searchTabButton" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="searchTab">
+            2. 조건 검색
+          </button>
+        </div>
 
-          <label class="field">
-            <span>모집 시기</span>
-            <select id="roundFilter">
-              <option value="">전체</option>
-              <option value="수시 1차">수시 1차</option>
-              <option value="수시 2차">수시 2차</option>
-            </select>
-          </label>
+        <section id="gradeTab" class="tab-panel active" role="tabpanel" aria-labelledby="gradeTabButton">
+          <form id="gradeForm" class="semester-grid">
+            <label class="field">
+              <span>1-1학기</span>
+              <input class="semester-input" id="grade11" type="number" min="1" max="9" step="0.01" placeholder="예: 5.20" />
+            </label>
+            <label class="field">
+              <span>1-2학기</span>
+              <input class="semester-input" id="grade12" type="number" min="1" max="9" step="0.01" placeholder="예: 5.40" />
+            </label>
+            <label class="field">
+              <span>2-1학기</span>
+              <input class="semester-input" id="grade21" type="number" min="1" max="9" step="0.01" placeholder="예: 5.60" />
+            </label>
+            <label class="field">
+              <span>2-2학기</span>
+              <input class="semester-input" id="grade22" type="number" min="1" max="9" step="0.01" placeholder="예: 5.80" />
+            </label>
+            <label class="field">
+              <span>3-1학기</span>
+              <input class="semester-input" id="grade31" type="number" min="1" max="9" step="0.01" placeholder="예: 6.00" />
+            </label>
+          </form>
 
-          <label class="field">
-            <span>전형</span>
-            <select id="trackFilter">
-              <option value="">전체</option>
-              <option value="일반전형">일반전형</option>
-              <option value="일반고">일반고</option>
-              <option value="특성화고">특성화고</option>
-            </select>
-          </label>
+          <div class="grade-summary">
+            <div>
+              <span class="summary-label">계산된 평균 내신</span>
+              <strong id="averageGrade">-</strong>
+            </div>
+            <div>
+              <span class="summary-label">입력 학기</span>
+              <strong id="semesterCount">0개</strong>
+            </div>
+            <button id="goSearchButton" class="primary-button" type="button">조건 검색으로 이동</button>
+          </div>
+        </section>
 
-          <label class="field">
-            <span>지역</span>
-            <select id="regionFilter">
-              <option value="">전체</option>
-            </select>
-          </label>
+        <section id="searchTab" class="tab-panel" role="tabpanel" aria-labelledby="searchTabButton" hidden>
+          <form id="searchForm" class="filters">
+            <label class="field compact-grade">
+              <span>검색 기준 내신</span>
+              <input id="gradeInput" type="number" min="1" max="9" step="0.01" placeholder="첫 탭에서 자동 계산" required />
+            </label>
 
-          <label class="field wide-field">
-            <span>대학·학과 검색</span>
-            <input id="keywordInput" type="search" placeholder="예: 간호, 컴퓨터, 경기과학기술" />
-          </label>
+            <label class="field">
+              <span>지역</span>
+              <select id="regionFilter">
+                <option value="">전체</option>
+              </select>
+            </label>
 
-          <label class="field">
-            <span>상향 허용폭</span>
-            <select id="reachFilter">
-              <option value="0">최저 등급까지만</option>
-              <option value="0.3" selected>+0.3등급</option>
-              <option value="0.5">+0.5등급</option>
-              <option value="1">+1.0등급</option>
-            </select>
-          </label>
+            <label class="field">
+              <span>전형</span>
+              <select id="trackFilter">
+                <option value="">전체</option>
+                <option value="일반전형">일반전형</option>
+                <option value="일반고">일반고</option>
+                <option value="특성화고">특성화고</option>
+              </select>
+            </label>
 
-          <button class="primary-button" type="submit">검색</button>
-        </form>
+            <label class="field">
+              <span>모집 시기</span>
+              <select id="roundFilter">
+                <option value="">전체</option>
+                <option value="수시 1차">수시 1차</option>
+                <option value="수시 2차">수시 2차</option>
+              </select>
+            </label>
+
+            <label class="field wide-field">
+              <span>대학·학과 검색</span>
+              <input id="keywordInput" type="search" placeholder="예: 간호, 컴퓨터, 경기과학기술" />
+            </label>
+
+            <label class="field">
+              <span>상향 허용 폭</span>
+              <select id="reachFilter">
+                <option value="0">최저 등급까지만</option>
+                <option value="0.3" selected>+0.3등급</option>
+                <option value="0.5">+0.5등급</option>
+                <option value="1">+1.0등급</option>
+              </select>
+            </label>
+
+            <button class="primary-button" type="submit">검색</button>
+          </form>
+        </section>
       </section>
 
       <section class="summary" aria-live="polite">
@@ -93,7 +141,7 @@
           </select>
         </div>
         <div id="emptyState" class="empty-state">
-          내신 등급을 입력하면 지원 가능 대학과 학과가 표시됩니다.
+          첫 번째 탭에서 학기별 내신을 입력한 뒤 조건 검색을 진행하세요.
         </div>
         <div id="results" class="results"></div>
       </section>

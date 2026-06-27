@@ -4,7 +4,15 @@ const state = {
   grade: null,
 };
 
-const form = document.querySelector("#searchForm");
+const gradeTabButton = document.querySelector("#gradeTabButton");
+const searchTabButton = document.querySelector("#searchTabButton");
+const gradeTab = document.querySelector("#gradeTab");
+const searchTab = document.querySelector("#searchTab");
+const semesterInputs = [...document.querySelectorAll(".semester-input")];
+const averageGrade = document.querySelector("#averageGrade");
+const semesterCount = document.querySelector("#semesterCount");
+const goSearchButton = document.querySelector("#goSearchButton");
+const searchForm = document.querySelector("#searchForm");
 const gradeInput = document.querySelector("#gradeInput");
 const roundFilter = document.querySelector("#roundFilter");
 const trackFilter = document.querySelector("#trackFilter");
@@ -19,6 +27,44 @@ const results = document.querySelector("#results");
 
 const formatGrade = (value) => (Number.isFinite(value) ? value.toFixed(2).replace(/\.00$/, "") : "-");
 const formatCount = (value) => (Number.isFinite(value) ? `${value.toLocaleString("ko-KR")}명` : "-");
+
+function switchTab(target) {
+  const isGradeTab = target === "grade";
+  gradeTabButton.classList.toggle("active", isGradeTab);
+  searchTabButton.classList.toggle("active", !isGradeTab);
+  gradeTabButton.setAttribute("aria-selected", String(isGradeTab));
+  searchTabButton.setAttribute("aria-selected", String(!isGradeTab));
+  gradeTab.classList.toggle("active", isGradeTab);
+  searchTab.classList.toggle("active", !isGradeTab);
+  gradeTab.hidden = !isGradeTab;
+  searchTab.hidden = isGradeTab;
+}
+
+function getValidSemesterGrades() {
+  return semesterInputs
+    .map((input) => Number.parseFloat(input.value))
+    .filter((value) => Number.isFinite(value) && value >= 1 && value <= 9);
+}
+
+function updateAverageGrade() {
+  const grades = getValidSemesterGrades();
+  semesterCount.textContent = `${grades.length}개`;
+
+  if (!grades.length) {
+    state.grade = null;
+    averageGrade.textContent = "-";
+    gradeInput.value = "";
+    state.filtered = [];
+    render();
+    return;
+  }
+
+  const average = grades.reduce((sum, value) => sum + value, 0) / grades.length;
+  state.grade = average;
+  averageGrade.textContent = formatGrade(average);
+  gradeInput.value = average.toFixed(2);
+  applyFilters();
+}
 
 function judge(row, grade, reach) {
   if (!Number.isFinite(grade)) return null;
@@ -65,9 +111,9 @@ function applyFilters() {
   state.filtered = state.rows
     .map((row) => ({ ...row, judgement: judge(row, grade, reach) }))
     .filter((row) => row.judgement)
-    .filter((row) => !round || row.round === round)
-    .filter((row) => !track || row.track === track)
     .filter((row) => !region || row.region === region)
+    .filter((row) => !track || row.track === track)
+    .filter((row) => !round || row.round === round)
     .filter((row) => {
       if (!keyword) return true;
       return `${row.college} ${row.major}`.toLowerCase().includes(keyword);
@@ -102,8 +148,8 @@ function render() {
   if (!state.filtered.length) {
     emptyState.classList.remove("hidden");
     emptyState.textContent = state.grade
-      ? "조건에 맞는 결과가 없습니다. 전형, 지역, 상향 허용폭을 넓혀 다시 검색해 보세요."
-      : "내신 등급을 입력하면 지원 가능 대학과 학과가 표시됩니다.";
+      ? "조건에 맞는 결과가 없습니다. 전형, 지역, 상향 허용 폭을 넓혀 다시 검색해 보세요."
+      : "첫 번째 탭에서 학기별 내신을 입력한 뒤 조건 검색을 진행하세요.";
     return;
   }
 
@@ -161,30 +207,32 @@ async function boot() {
     dataCount.textContent = `${state.rows.length.toLocaleString("ko-KR")}건`;
     populateRegions(state.rows);
   } catch (error) {
-    emptyState.textContent = "입결 데이터를 불러오지 못했습니다. 로컬 서버에서 실행해 주세요.";
+    emptyState.textContent = "입결 데이터를 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
     dataCount.textContent = "오류";
     console.error(error);
   }
 }
 
-form.addEventListener("submit", (event) => {
+gradeTabButton.addEventListener("click", () => switchTab("grade"));
+searchTabButton.addEventListener("click", () => switchTab("search"));
+goSearchButton.addEventListener("click", () => switchTab("search"));
+
+semesterInputs.forEach((input) => {
+  input.addEventListener("input", updateAverageGrade);
+});
+
+searchForm.addEventListener("submit", (event) => {
   event.preventDefault();
   applyFilters();
 });
 
-[roundFilter, trackFilter, regionFilter, keywordInput, reachFilter].forEach((element) => {
-  element.addEventListener("input", () => {
-    if (gradeInput.value) applyFilters();
-  });
+[roundFilter, trackFilter, regionFilter, keywordInput, reachFilter, gradeInput].forEach((element) => {
+  element.addEventListener("input", applyFilters);
 });
 
 sortFilter.addEventListener("input", () => {
   sortRows();
   render();
-});
-
-gradeInput.addEventListener("input", () => {
-  if (gradeInput.value) applyFilters();
 });
 
 boot();
