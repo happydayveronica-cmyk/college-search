@@ -1,1 +1,104 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>2026 전문대 수시 입결 검색</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="search-panel" aria-labelledby="page-title">
+        <div class="title-block">
+          <p class="eyebrow">2026학년도 전문대 수시 상담</p>
+          <h1 id="page-title">내신으로 찾는 지원 가능 대학</h1>
+          <p class="subtitle">
+            전년도 입결(일반) 자료의 평균·최저 등급을 기준으로 안정권, 적정권, 상향권을 분류합니다.
+          </p>
+        </div>
 
+        <form id="searchForm" class="filters">
+          <label class="field grade-field">
+            <span>내 내신 등급</span>
+            <input id="gradeInput" type="number" min="1" max="9" step="0.01" placeholder="예: 5.80" required />
+          </label>
+
+          <label class="field">
+            <span>모집 시기</span>
+            <select id="roundFilter">
+              <option value="">전체</option>
+              <option value="수시 1차">수시 1차</option>
+              <option value="수시 2차">수시 2차</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>전형</span>
+            <select id="trackFilter">
+              <option value="">전체</option>
+              <option value="일반전형">일반전형</option>
+              <option value="일반고">일반고</option>
+              <option value="특성화고">특성화고</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>지역</span>
+            <select id="regionFilter">
+              <option value="">전체</option>
+            </select>
+          </label>
+
+          <label class="field wide-field">
+            <span>대학·학과 검색</span>
+            <input id="keywordInput" type="search" placeholder="예: 간호, 컴퓨터, 경기과학기술" />
+          </label>
+
+          <label class="field">
+            <span>상향 허용폭</span>
+            <select id="reachFilter">
+              <option value="0">최저 등급까지만</option>
+              <option value="0.3" selected>+0.3등급</option>
+              <option value="0.5">+0.5등급</option>
+              <option value="1">+1.0등급</option>
+            </select>
+          </label>
+
+          <button class="primary-button" type="submit">검색</button>
+        </form>
+      </section>
+
+      <section class="summary" aria-live="polite">
+        <div>
+          <span class="summary-label">검색 결과</span>
+          <strong id="resultCount">0개</strong>
+        </div>
+        <div>
+          <span class="summary-label">자료 기준</span>
+          <strong>전년도 입결(일반)</strong>
+        </div>
+        <div>
+          <span class="summary-label">데이터</span>
+          <strong id="dataCount">불러오는 중</strong>
+        </div>
+      </section>
+
+      <section class="results-wrap">
+        <div class="results-head">
+          <h2>지원 가능 검색 결과</h2>
+          <select id="sortFilter" aria-label="정렬">
+            <option value="best">추천순</option>
+            <option value="cutoff">최저 등급 높은순</option>
+            <option value="college">대학명순</option>
+          </select>
+        </div>
+        <div id="emptyState" class="empty-state">
+          내신 등급을 입력하면 지원 가능 대학과 학과가 표시됩니다.
+        </div>
+        <div id="results" class="results"></div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
