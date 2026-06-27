@@ -1,9 +1,9 @@
 const SEMESTERS = [
-  { id: "s11", label: "1학년 1학기" },
-  { id: "s12", label: "1학년 2학기" },
-  { id: "s21", label: "2학년 1학기" },
-  { id: "s22", label: "2학년 2학기" },
-  { id: "s31", label: "3학년 1학기" },
+  { id: "s11", label: "1학년 1학기", year: 1 },
+  { id: "s12", label: "1학년 2학기", year: 1 },
+  { id: "s21", label: "2학년 1학기", year: 2 },
+  { id: "s22", label: "2학년 2학기", year: 2 },
+  { id: "s31", label: "3학년 1학기", year: 3 },
 ];
 
 const DEFAULT_SUBJECTS = 5;
@@ -13,6 +13,8 @@ const state = {
   filtered: [],
   grade: null,
   semesterAverages: {},
+  semesterSubjects: {},
+  defaultGradeLabel: "",
 };
 
 const gradeTabButton = document.querySelector("#gradeTabButton");
@@ -124,35 +126,25 @@ function appendSubjectPair(semesterId) {
 
 function updateGrades() {
   state.semesterAverages = {};
+  state.semesterSubjects = {};
 
   SEMESTERS.forEach((semester) => {
-    const block = getSemesterBlock(semester.id);
-    let weightedSum = 0;
-    let unitSum = 0;
-
-    block.querySelectorAll(".subject-pair").forEach((pair) => {
-      const grade = Number.parseFloat(pair.querySelector(".subject-grade").value);
-      const unit = Number.parseFloat(pair.querySelector(".subject-unit").value);
-      if (Number.isFinite(grade) && grade >= 1 && grade <= 9 && Number.isFinite(unit) && unit > 0) {
-        weightedSum += grade * unit;
-        unitSum += unit;
-      }
-    });
-
-    const average = unitSum > 0 ? weightedSum / unitSum : null;
+    const subjects = readSemesterSubjects(semester.id);
+    state.semesterSubjects[semester.id] = subjects;
+    const average = averageSubjects(subjects);
     state.semesterAverages[semester.id] = average;
-    block.querySelector(".semester-average").value = average === null ? "-" : formatGrade(average);
+    getSemesterBlock(semester.id).querySelector(".semester-average").value =
+      average === null ? "-" : formatGrade(average);
   });
 
-  const completed = SEMESTERS.map((semester) => ({
-    ...semester,
-    average: state.semesterAverages[semester.id],
-  })).filter((semester) => Number.isFinite(semester.average));
+  const fallback = calculateByMethod("1학년~3학년 1학기 5개 학기 중 최우수 1개 학기");
+  const completed = getCompletedSemesters();
 
   semesterCount.textContent = `${completed.length}개`;
 
-  if (!completed.length) {
+  if (!Number.isFinite(fallback.grade)) {
     state.grade = null;
+    state.defaultGradeLabel = "";
     averageGrade.textContent = "-";
     bestSemester.textContent = "-";
     gradeInput.value = "";
@@ -161,12 +153,132 @@ function updateGrades() {
     return;
   }
 
-  const best = completed.sort((a, b) => a.average - b.average)[0];
-  state.grade = best.average;
-  averageGrade.textContent = formatGrade(best.average);
-  bestSemester.textContent = best.label;
-  gradeInput.value = best.average.toFixed(2);
+  state.grade = fallback.grade;
+  state.defaultGradeLabel = fallback.label;
+  averageGrade.textContent = formatGrade(fallback.grade);
+  bestSemester.textContent = fallback.label;
+  gradeInput.value = fallback.grade.toFixed(2);
   applyFilters();
+}
+
+function readSemesterSubjects(semesterId) {
+  return [...getSemesterBlock(semesterId).querySelectorAll(".subject-pair")]
+    .map((pair) => ({
+      grade: Number.parseFloat(pair.querySelector(".subject-grade").value),
+      unit: Number.parseFloat(pair.querySelector(".subject-unit").value),
+    }))
+    .filter(({ grade, unit }) => Number.isFinite(grade) && grade >= 1 && grade <= 9 && Number.isFinite(unit) && unit > 0);
+}
+
+function averageSubjects(subjects) {
+  const unitSum = subjects.reduce((sum, subject) => sum + subject.unit, 0);
+  if (!unitSum) return null;
+  return subjects.reduce((sum, subject) => sum + subject.grade * subject.unit, 0) / unitSum;
+}
+
+function getCompletedSemesters(ids = SEMESTERS.map((semester) => semester.id)) {
+  return ids
+    .map((id) => {
+      const semester = SEMESTERS.find((item) => item.id === id);
+      return { ...semester, average: state.semesterAverages[id] };
+    })
+    .filter((semester) => Number.isFinite(semester.average));
+}
+
+function bestSemesterAverage(ids, count) {
+  const selected = getCompletedSemesters(ids)
+    .sort((a, b) => a.average - b.average)
+    .slice(0, count);
+  if (!selected.length) return { grade: null, label: "입력 필요" };
+  const grade = selected.reduce((sum, semester) => sum + semester.average, 0) / selected.length;
+  return {
+    grade,
+    label: selected.map((semester) => semester.label).join(", "),
+  };
+}
+
+function allSemesterAverage(ids) {
+  const selected = getCompletedSemesters(ids);
+  if (!selected.length) return { grade: null, label: "입력 필요" };
+  const grade = selected.reduce((sum, semester) => sum + semester.average, 0) / selected.length;
+  return {
+    grade,
+    label: selected.map((semester) => semester.label).join(", "),
+  };
+}
+
+function weightedYearAverage(weights) {
+  let weightedSum = 0;
+  let weightSum = 0;
+  const labels = [];
+
+  Object.entries(weights).forEach(([year, weight]) => {
+    const ids = SEMESTERS.filter((semester) => semester.year === Number(year)).map((semester) => semester.id);
+    const yearAverage = allSemesterAverage(ids);
+    if (Number.isFinite(yearAverage.grade)) {
+      weightedSum += yearAverage.grade * weight;
+      weightSum += weight;
+      labels.push(`${year}학년 ${formatGrade(yearAverage.grade)}×${weight}`);
+    }
+  });
+
+  if (!weightSum) return { grade: null, label: "입력 필요" };
+  return { grade: weightedSum / weightSum, label: labels.join(" + ") };
+}
+
+function specialOnePerYearAverage() {
+  const first = bestSemesterAverage(["s11", "s12"], 1);
+  const second = allSemesterAverage(["s21"]);
+  const third = bestSemesterAverage(["s31"], 1);
+  const parts = [
+    { ...first, weight: 30 },
+    { ...second, weight: 30 },
+    { ...third, weight: 40 },
+  ].filter((part) => Number.isFinite(part.grade));
+
+  if (!parts.length) return { grade: null, label: "입력 필요" };
+  const weightSum = parts.reduce((sum, part) => sum + part.weight, 0);
+  const grade = parts.reduce((sum, part) => sum + part.grade * part.weight, 0) / weightSum;
+  return {
+    grade,
+    label: parts.map((part) => `${part.label} ${part.weight}%`).join(" + "),
+  };
+}
+
+function calculateByMethod(method = "") {
+  const normalized = method.replace(/\s+/g, " ").trim();
+  const allFive = ["s11", "s12", "s21", "s22", "s31"];
+  const firstTwoYears = ["s11", "s12", "s21", "s22"];
+
+  if (!normalized) {
+    return bestSemesterAverage(allFive, 1);
+  }
+  if (normalized.includes("1학년 우수 1개 학기+2학년 1학기+3학년 우수 1개 학기")) {
+    return specialOnePerYearAverage();
+  }
+  if (normalized.includes("1학년 40+2학년 40+3학년 1학기 20")) {
+    return weightedYearAverage({ 1: 40, 2: 40, 3: 20 });
+  }
+  if (normalized.includes("1학년 총 2개 학기")) {
+    return allSemesterAverage(["s11", "s12"]);
+  }
+  if (normalized.includes("1학년~2학년 4개 학기") || normalized.includes("1~2학년 4개 학기")) {
+    if (normalized.includes("우수 2개")) return bestSemesterAverage(firstTwoYears, 2);
+    return bestSemesterAverage(firstTwoYears, 1);
+  }
+  if (normalized.includes("우수 3개 학기")) {
+    return bestSemesterAverage(allFive, 3);
+  }
+  if (normalized.includes("우수 2개 학기") || normalized.includes("최우수 2개 학기")) {
+    return bestSemesterAverage(allFive, 2);
+  }
+  if (normalized.includes("5개 학기 모두 반영")) {
+    return allSemesterAverage(allFive);
+  }
+  if (normalized.includes("우수 3개 교과")) {
+    return bestSemesterAverage(allFive, 1);
+  }
+  return bestSemesterAverage(allFive, 1);
 }
 
 function judge(row, grade, reach) {
@@ -197,22 +309,32 @@ function populateRegions(rows) {
 }
 
 function applyFilters() {
-  const grade = Number.parseFloat(gradeInput.value);
+  const manualGrade = Number.parseFloat(gradeInput.value);
   const reach = Number.parseFloat(reachFilter.value);
   const round = roundFilter.value;
   const track = trackFilter.value;
   const region = regionFilter.value;
   const keyword = keywordInput.value.trim().toLowerCase();
+  const hasSubjectGrades = getCompletedSemesters().length > 0;
 
-  state.grade = Number.isFinite(grade) ? grade : null;
-  if (!Number.isFinite(grade) || grade < 1 || grade > 9) {
+  state.grade = Number.isFinite(manualGrade) ? manualGrade : null;
+  if (!hasSubjectGrades && (!Number.isFinite(manualGrade) || manualGrade < 1 || manualGrade > 9)) {
     state.filtered = [];
     render();
     return;
   }
 
   state.filtered = state.rows
-    .map((row) => ({ ...row, judgement: judge(row, grade, reach) }))
+    .map((row) => {
+      const applied = hasSubjectGrades ? calculateByMethod(row.scoreMethod2026) : { grade: manualGrade, label: "직접 입력" };
+      const appliedGrade = Number.isFinite(applied.grade) ? applied.grade : manualGrade;
+      return {
+        ...row,
+        appliedGrade,
+        appliedGradeLabel: applied.label,
+        judgement: judge(row, appliedGrade, reach),
+      };
+    })
     .filter((row) => row.judgement)
     .filter((row) => !region || row.region === region)
     .filter((row) => !track || row.track === track)
@@ -237,8 +359,8 @@ function sortRows() {
     }
     return (
       a.judgement.rank - b.judgement.rank ||
-      Math.abs((a.avgGrade ?? a.cutoffGrade ?? 9) - state.grade) -
-        Math.abs((b.avgGrade ?? b.cutoffGrade ?? 9) - state.grade) ||
+      Math.abs((a.avgGrade ?? a.cutoffGrade ?? 9) - a.appliedGrade) -
+        Math.abs((b.avgGrade ?? b.cutoffGrade ?? 9) - b.appliedGrade) ||
       `${a.college}${a.major}`.localeCompare(`${b.college}${b.major}`, "ko-KR")
     );
   });
@@ -284,11 +406,11 @@ function renderRow(row) {
       </div>
       <span class="badge ${row.judgement.key}">${row.judgement.label}</span>
       <div class="numbers">
-        <span>평균 <strong>${formatGrade(row.avgGrade)}</strong></span>
-        <span>최저 <strong>${formatGrade(row.cutoffGrade)}</strong></span>
+        <span>내 산출 <strong>${formatGrade(row.appliedGrade)}</strong></span>
+        <span>평균 <strong>${formatGrade(row.avgGrade)}</strong> · 최저 <strong>${formatGrade(row.cutoffGrade)}</strong></span>
         <span>모집 <strong>${formatCount(row.quota)}</strong> · 충원 <strong>${formatCount(row.waitlist)}</strong></span>
       </div>
-      <p class="method">${escapeHtml(method)}</p>
+      <p class="method">${escapeHtml(method)}<br /><span>반영: ${escapeHtml(row.appliedGradeLabel || "-")}</span></p>
     </article>
   `;
 }
