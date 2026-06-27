@@ -1,15 +1,28 @@
+const SEMESTERS = [
+  { id: "s11", label: "1학년 1학기" },
+  { id: "s12", label: "1학년 2학기" },
+  { id: "s21", label: "2학년 1학기" },
+  { id: "s22", label: "2학년 2학기" },
+  { id: "s31", label: "3학년 1학기" },
+];
+
+const DEFAULT_SUBJECTS = 5;
+
 const state = {
   rows: [],
   filtered: [],
   grade: null,
+  semesterAverages: {},
 };
 
 const gradeTabButton = document.querySelector("#gradeTabButton");
 const searchTabButton = document.querySelector("#searchTabButton");
 const gradeTab = document.querySelector("#gradeTab");
 const searchTab = document.querySelector("#searchTab");
-const semesterInputs = [...document.querySelectorAll(".semester-input")];
+const searchOutput = document.querySelector("#searchOutput");
+const semesterContainer = document.querySelector("#semesterContainer");
 const averageGrade = document.querySelector("#averageGrade");
+const bestSemester = document.querySelector("#bestSemester");
 const semesterCount = document.querySelector("#semesterCount");
 const goSearchButton = document.querySelector("#goSearchButton");
 const searchForm = document.querySelector("#searchForm");
@@ -38,31 +51,121 @@ function switchTab(target) {
   searchTab.classList.toggle("active", !isGradeTab);
   gradeTab.hidden = !isGradeTab;
   searchTab.hidden = isGradeTab;
+  searchOutput.hidden = isGradeTab;
 }
 
-function getValidSemesterGrades() {
-  return semesterInputs
-    .map((input) => Number.parseFloat(input.value))
-    .filter((value) => Number.isFinite(value) && value >= 1 && value <= 9);
+function buildSemesterInputs() {
+  semesterContainer.innerHTML = SEMESTERS.map(renderSemesterBlock).join("");
+  SEMESTERS.forEach((semester) => {
+    const block = getSemesterBlock(semester.id);
+    block.querySelector(".add-subject").addEventListener("click", () => addSubject(semester.id));
+    block.querySelector(".remove-subject").addEventListener("click", () => removeSubject(semester.id));
+    for (let index = 0; index < DEFAULT_SUBJECTS; index += 1) {
+      appendSubjectPair(semester.id);
+    }
+  });
+  updateGrades();
 }
 
-function updateAverageGrade() {
-  const grades = getValidSemesterGrades();
-  semesterCount.textContent = `${grades.length}개`;
+function renderSemesterBlock(semester) {
+  return `
+    <section class="semester-block" data-semester="${semester.id}">
+      <div class="semester-head">
+        <div class="semester-title">
+          <h2>${semester.label}</h2>
+          <input class="semester-average" type="text" value="-" aria-label="${semester.label} 평균등급" readonly />
+        </div>
+        <div class="semester-actions">
+          <button class="add-subject" type="button">과목추가 +</button>
+          <button class="remove-subject" type="button">과목삭제 -</button>
+        </div>
+      </div>
+      <div class="subject-grid"></div>
+    </section>
+  `;
+}
 
-  if (!grades.length) {
+function getSemesterBlock(semesterId) {
+  return semesterContainer.querySelector(`[data-semester="${semesterId}"]`);
+}
+
+function addSubject(semesterId) {
+  appendSubjectPair(semesterId);
+  updateGrades();
+}
+
+function removeSubject(semesterId) {
+  const block = getSemesterBlock(semesterId);
+  const pairs = [...block.querySelectorAll(".subject-pair")];
+  if (pairs.length <= 1) return;
+  pairs[pairs.length - 1].remove();
+  updateGrades();
+}
+
+function appendSubjectPair(semesterId) {
+  const block = getSemesterBlock(semesterId);
+  const grid = block.querySelector(".subject-grid");
+  const subjectNumber = grid.querySelectorAll(".subject-pair").length + 1;
+  const pair = document.createElement("div");
+  pair.className = "subject-pair";
+  pair.innerHTML = `
+    <label>
+      <span>등급</span>
+      <input class="subject-grade" type="number" min="1" max="9" step="0.01" inputmode="decimal" aria-label="${subjectNumber}번째 과목 등급" />
+    </label>
+    <label>
+      <span>이수단위</span>
+      <input class="subject-unit" type="number" min="0" max="20" step="0.5" inputmode="decimal" aria-label="${subjectNumber}번째 과목 이수단위" />
+    </label>
+  `;
+  pair.querySelectorAll("input").forEach((input) => input.addEventListener("input", updateGrades));
+  grid.append(pair);
+}
+
+function updateGrades() {
+  state.semesterAverages = {};
+
+  SEMESTERS.forEach((semester) => {
+    const block = getSemesterBlock(semester.id);
+    let weightedSum = 0;
+    let unitSum = 0;
+
+    block.querySelectorAll(".subject-pair").forEach((pair) => {
+      const grade = Number.parseFloat(pair.querySelector(".subject-grade").value);
+      const unit = Number.parseFloat(pair.querySelector(".subject-unit").value);
+      if (Number.isFinite(grade) && grade >= 1 && grade <= 9 && Number.isFinite(unit) && unit > 0) {
+        weightedSum += grade * unit;
+        unitSum += unit;
+      }
+    });
+
+    const average = unitSum > 0 ? weightedSum / unitSum : null;
+    state.semesterAverages[semester.id] = average;
+    block.querySelector(".semester-average").value = average === null ? "-" : formatGrade(average);
+  });
+
+  const completed = SEMESTERS.map((semester) => ({
+    ...semester,
+    average: state.semesterAverages[semester.id],
+  })).filter((semester) => Number.isFinite(semester.average));
+
+  semesterCount.textContent = `${completed.length}개`;
+
+  if (!completed.length) {
     state.grade = null;
     averageGrade.textContent = "-";
+    bestSemester.textContent = "-";
     gradeInput.value = "";
     state.filtered = [];
     render();
     return;
   }
 
-  const average = grades.reduce((sum, value) => sum + value, 0) / grades.length;
-  state.grade = average;
-  averageGrade.textContent = formatGrade(average);
-  gradeInput.value = average.toFixed(2);
+  const best = completed.sort((a, b) => a.average - b.average)[0];
+  state.grade = best.average;
+  averageGrade.textContent = formatGrade(best.average);
+  bestSemester.textContent = best.label;
+  gradeInput.value = best.average.toFixed(2);
   applyFilters();
 }
 
@@ -149,7 +252,7 @@ function render() {
     emptyState.classList.remove("hidden");
     emptyState.textContent = state.grade
       ? "조건에 맞는 결과가 없습니다. 전형, 지역, 상향 허용 폭을 넓혀 다시 검색해 보세요."
-      : "첫 번째 탭에서 학기별 내신을 입력한 뒤 조건 검색을 진행하세요.";
+      : "첫 번째 탭에서 내신을 입력한 뒤 조건 검색을 진행하세요.";
     return;
   }
 
@@ -200,6 +303,8 @@ function escapeHtml(value) {
 }
 
 async function boot() {
+  buildSemesterInputs();
+
   try {
     const response = await fetch("data/admissions.json");
     if (!response.ok) throw new Error("데이터를 불러오지 못했습니다.");
@@ -216,10 +321,6 @@ async function boot() {
 gradeTabButton.addEventListener("click", () => switchTab("grade"));
 searchTabButton.addEventListener("click", () => switchTab("search"));
 goSearchButton.addEventListener("click", () => switchTab("search"));
-
-semesterInputs.forEach((input) => {
-  input.addEventListener("input", updateAverageGrade);
-});
 
 searchForm.addEventListener("submit", (event) => {
   event.preventDefault();
