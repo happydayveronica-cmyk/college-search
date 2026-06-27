@@ -79,7 +79,7 @@ h1 {
 
 .tabs {
   display: inline-grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   margin-bottom: 20px;
   padding: 4px;
@@ -213,13 +213,24 @@ h1 {
   font-weight: 900;
 }
 
-.subject-pair input {
+.subject-pair input,
+.subject-pair select {
   align-self: center;
   justify-self: center;
   width: min(78px, calc(100% - 18px));
   height: 52px;
   padding: 0 8px;
   text-align: center;
+}
+
+.subject-pair select {
+  padding: 0 6px;
+}
+
+.attendance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
 }
 
 .grade-summary {
@@ -467,6 +478,7 @@ select:focus {
 
 @media (max-width: 980px) {
   .filters,
+  .attendance-grid,
   .grade-summary,
   .summary,
   .result-row {
@@ -495,6 +507,7 @@ select:focus {
   }
 
   .filters,
+  .attendance-grid,
   .grade-summary,
   .summary,
   .result-row {
@@ -503,6 +516,7 @@ select:focus {
 
   .tabs {
     width: 100%;
+    grid-template-columns: 1fr 1fr;
   }
 
   .semester-head,

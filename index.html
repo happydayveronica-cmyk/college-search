@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>2026 전문대 수시 입결 검색</title>
-    <link rel="stylesheet" href="style.css?v=20260627-methods" />
+    <link rel="stylesheet" href="style.css?v=20260627-career-attendance" />
   </head>
   <body>
     <main class="app">
@@ -13,7 +13,7 @@
           <p class="eyebrow">2026학년도 전문대 수시 상담</p>
           <h1 id="page-title">내신으로 찾는 지원 가능 대학</h1>
           <p class="subtitle">
-            학기별 과목 등급과 이수단위를 입력하면, 각 대학의 2026학년도 교과점수 산출방법에 맞춰 내신을 다시 계산해 검색합니다.
+            석차등급, 진로선택과목, 출결을 입력하면 엑셀의 학교별 학생부·비교과 반영방법에 맞춰 검색합니다.
           </p>
         </div>
 
@@ -21,27 +21,82 @@
           <button id="gradeTabButton" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="gradeTab">
             1. 내신 입력
           </button>
+          <button id="attendanceTabButton" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="attendanceTab">
+            2. 출결 입력
+          </button>
+          <button id="careerTabButton" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="careerTab">
+            3. 진로선택
+          </button>
           <button id="searchTabButton" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="searchTab">
-            2. 조건 검색
+            4. 조건 검색
           </button>
         </div>
 
         <section id="gradeTab" class="tab-panel active" role="tabpanel" aria-labelledby="gradeTabButton">
-          <p class="grade-note">※ 검색 결과는 대학별 반영방법에 따라 최우수 1개 학기, 우수 2개 학기, 학년별 비율 등을 각각 적용합니다.</p>
+          <p class="grade-note">※ 석차등급 과목은 학기별 등급과 이수단위를 입력합니다.</p>
           <div id="semesterContainer" class="semester-list"></div>
 
           <div class="grade-summary">
             <div>
-              <span class="summary-label">검색 반영 내신</span>
+              <span class="summary-label">기본 산출 내신</span>
               <strong id="averageGrade">-</strong>
             </div>
             <div>
-              <span class="summary-label">최우수 학기</span>
+              <span class="summary-label">기본 반영 학기</span>
               <strong id="bestSemester">-</strong>
             </div>
             <div>
               <span class="summary-label">입력 완료 학기</span>
               <strong id="semesterCount">0개</strong>
+            </div>
+            <button id="goAttendanceButton" class="primary-button" type="button">출결 입력으로 이동</button>
+          </div>
+        </section>
+
+        <section id="attendanceTab" class="tab-panel" role="tabpanel" aria-labelledby="attendanceTabButton" hidden>
+          <p class="grade-note">※ 미인정 지각·조퇴·결과는 학교별 규칙에 따라 결석일수로 환산됩니다.</p>
+          <div class="attendance-grid">
+            <label class="field">
+              <span>미인정 결석</span>
+              <input id="absenceInput" type="number" min="0" step="1" value="0" />
+            </label>
+            <label class="field">
+              <span>미인정 지각</span>
+              <input id="lateInput" type="number" min="0" step="1" value="0" />
+            </label>
+            <label class="field">
+              <span>미인정 조퇴</span>
+              <input id="earlyInput" type="number" min="0" step="1" value="0" />
+            </label>
+            <label class="field">
+              <span>미인정 결과</span>
+              <input id="missInput" type="number" min="0" step="1" value="0" />
+            </label>
+          </div>
+          <div class="grade-summary">
+            <div>
+              <span class="summary-label">기본 환산 결석일</span>
+              <strong id="attendanceDays">0일</strong>
+            </div>
+            <div>
+              <span class="summary-label">출결 반영 학교</span>
+              <strong id="attendanceRuleCount">0개</strong>
+            </div>
+            <button id="goCareerButton" class="primary-button" type="button">진로선택 입력으로 이동</button>
+          </div>
+        </section>
+
+        <section id="careerTab" class="tab-panel" role="tabpanel" aria-labelledby="careerTabButton" hidden>
+          <p class="grade-note">※ 2학년 1학기, 2학년 2학기, 3학년 1학기 진로선택과목은 A~E와 이수단위를 입력합니다.</p>
+          <div id="careerContainer" class="semester-list"></div>
+          <div class="grade-summary">
+            <div>
+              <span class="summary-label">진로선택 환산 학교</span>
+              <strong id="careerRuleCount">0개</strong>
+            </div>
+            <div>
+              <span class="summary-label">입력 과목</span>
+              <strong id="careerSubjectCount">0개</strong>
             </div>
             <button id="goSearchButton" class="primary-button" type="button">조건 검색으로 이동</button>
           </div>
@@ -50,8 +105,8 @@
         <section id="searchTab" class="tab-panel" role="tabpanel" aria-labelledby="searchTabButton" hidden>
           <form id="searchForm" class="filters">
             <label class="field compact-grade">
-              <span>검색 기준 내신</span>
-              <input id="gradeInput" type="number" min="1" max="9" step="0.01" placeholder="첫 탭에서 자동 계산" required />
+              <span>직접 기준 내신</span>
+              <input id="gradeInput" type="number" min="1" max="9" step="0.01" placeholder="자동 계산값 사용" />
             </label>
 
             <label class="field">
@@ -126,13 +181,13 @@
             </select>
           </div>
           <div id="emptyState" class="empty-state">
-            첫 번째 탭에서 내신을 입력한 뒤 조건 검색을 진행하세요.
+            내신·출결·진로선택 정보를 입력한 뒤 조건 검색을 진행하세요.
           </div>
           <div id="results" class="results"></div>
         </section>
       </div>
     </main>
 
-    <script src="script.js?v=20260627-methods"></script>
+    <script src="script.js?v=20260627-career-attendance"></script>
   </body>
 </html>
