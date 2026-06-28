@@ -14,6 +14,7 @@ const state = {
   filtered: [],
   studentRules: [],
   attendanceRules: [],
+  prospectusRows: [],
   grade: null,
   semesterAverages: {},
   semesterSubjects: {},
@@ -24,14 +25,14 @@ const state = {
 const tabButtons = {
   grade: document.querySelector("#gradeTabButton"),
   attendance: document.querySelector("#attendanceTabButton"),
-  career: document.querySelector("#careerTabButton"),
   search: document.querySelector("#searchTabButton"),
+  prospectus: document.querySelector("#prospectusTabButton"),
 };
 const tabPanels = {
   grade: document.querySelector("#gradeTab"),
   attendance: document.querySelector("#attendanceTab"),
-  career: document.querySelector("#careerTab"),
   search: document.querySelector("#searchTab"),
+  prospectus: document.querySelector("#prospectusTab"),
 };
 
 const searchOutput = document.querySelector("#searchOutput");
@@ -56,6 +57,10 @@ const resultCount = document.querySelector("#resultCount");
 const dataCount = document.querySelector("#dataCount");
 const emptyState = document.querySelector("#emptyState");
 const results = document.querySelector("#results");
+const prospectusRegionFilter = document.querySelector("#prospectusRegionFilter");
+const prospectusKeywordInput = document.querySelector("#prospectusKeywordInput");
+const prospectusCount = document.querySelector("#prospectusCount");
+const prospectusCards = document.querySelector("#prospectusCards");
 
 const formatGrade = (value) => (Number.isFinite(value) ? value.toFixed(2).replace(/\.00$/, "") : "-");
 const formatCount = (value) => (Number.isFinite(value) ? `${value.toLocaleString("ko-KR")}명` : "-");
@@ -438,6 +443,11 @@ function populateRegions(rows) {
   regionFilter.insertAdjacentHTML("beforeend", regions.map((region) => `<option value="${escapeHtml(region)}">${escapeHtml(region)}</option>`).join(""));
 }
 
+function populateProspectusRegions(rows) {
+  const regions = [...new Set(rows.map((row) => row.region).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko-KR"));
+  prospectusRegionFilter.insertAdjacentHTML("beforeend", regions.map((region) => `<option value="${escapeHtml(region)}">${escapeHtml(region)}</option>`).join(""));
+}
+
 function applyFilters() {
   const manualGrade = Number.parseFloat(gradeInput.value);
   const reach = Number.parseFloat(reachFilter.value);
@@ -501,7 +511,7 @@ function render() {
   results.innerHTML = "";
   if (!state.filtered.length) {
     emptyState.classList.remove("hidden");
-    emptyState.textContent = state.grade ? "조건에 맞는 결과가 없습니다. 전형, 지역, 상향 허용 폭을 넓혀 다시 검색해 보세요." : "내신·출결·진로선택 정보를 입력한 뒤 조건 검색을 진행하세요.";
+    emptyState.textContent = state.grade ? "조건에 맞는 결과가 없습니다. 전형, 지역, 상향 허용 폭을 넓혀 다시 검색해 보세요." : "내신·출결 정보를 입력하고 조건 검색을 진행하세요.";
     return;
   }
   emptyState.classList.add("hidden");
@@ -544,6 +554,40 @@ function renderRow(row) {
   `;
 }
 
+function applyProspectusFilters() {
+  const region = prospectusRegionFilter.value;
+  const keyword = prospectusKeywordInput.value.trim().toLowerCase();
+  const filtered = state.prospectusRows
+    .filter((row) => !region || row.region === region)
+    .filter((row) => !keyword || row.college.toLowerCase().includes(keyword))
+    .sort((a, b) => `${a.region}${a.college}`.localeCompare(`${b.region}${b.college}`, "ko-KR"));
+  prospectusCount.textContent = `${filtered.length.toLocaleString("ko-KR")}개`;
+  prospectusCards.innerHTML = filtered.length ? filtered.map(renderProspectusCard).join("") : `<div class="empty-state">조건에 맞는 학교가 없습니다.</div>`;
+}
+
+function renderProspectusCard(row) {
+  const links = [
+    { label: "대학별 자료", url: row.collegeData },
+    { label: "전년도 입결", url: row.previousResult },
+    { label: "모집요강", url: row.prospectus },
+    { label: "내신성적 산출", url: row.gradeCalculator },
+  ];
+  return `
+    <article class="prospectus-card">
+      <span class="region">${escapeHtml(row.region)}</span>
+      <h3>${escapeHtml(row.college)}</h3>
+      <div class="prospectus-links">
+        ${links.map(renderProspectusLink).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderProspectusLink(link) {
+  if (!link.url) return `<span class="link-chip disabled">${escapeHtml(link.label)} 없음</span>`;
+  return `<a class="link-chip" href="${escapeAttribute(link.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.label)}</a>`;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -553,37 +597,44 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function escapeAttribute(value) {
+  return escapeHtml(value).replaceAll("`", "&#096;");
+}
+
 async function boot() {
   buildSemesterInputs();
-  [tabButtons.grade, tabButtons.attendance, tabButtons.career, tabButtons.search].forEach((button, index) => {
-    const keys = ["grade", "attendance", "career", "search"];
-    button.addEventListener("click", () => switchTab(keys[index]));
+  Object.entries(tabButtons).forEach(([key, button]) => {
+    button.addEventListener("click", () => switchTab(key));
   });
   document.querySelector("#goAttendanceButton").addEventListener("click", () => switchTab("attendance"));
-  document.querySelector("#goCareerButton").addEventListener("click", () => switchTab("career"));
   document.querySelector("#goSearchButton").addEventListener("click", () => switchTab("search"));
   ["#absenceInput", "#lateInput", "#earlyInput", "#missInput"].forEach((selector) => {
     document.querySelector(selector).addEventListener("input", readAttendanceInputs);
   });
 
   try {
-    const [admissionResponse, rulesResponse] = await Promise.all([
+    const [admissionResponse, rulesResponse, prospectusResponse] = await Promise.all([
       fetch("data/admissions.json"),
       fetch("data/school-rules.json"),
+      fetch("data/prospectus.json"),
     ]);
-    if (!admissionResponse.ok || !rulesResponse.ok) throw new Error("데이터를 불러오지 못했습니다.");
+    if (!admissionResponse.ok || !rulesResponse.ok || !prospectusResponse.ok) throw new Error("데이터를 불러오지 못했습니다.");
     state.rows = await admissionResponse.json();
     const rules = await rulesResponse.json();
     state.studentRules = rules.studentRules ?? [];
     state.attendanceRules = rules.attendanceRules ?? [];
+    state.prospectusRows = await prospectusResponse.json();
     dataCount.textContent = `${state.rows.length.toLocaleString("ko-KR")}건`;
     attendanceRuleCount.textContent = `${state.attendanceRules.length}개`;
     careerRuleCount.textContent = `${state.studentRules.filter((rule) => rule.careerMethod).length}개`;
     populateRegions(state.rows);
+    populateProspectusRegions(state.prospectusRows);
+    applyProspectusFilters();
     readAttendanceInputs();
   } catch (error) {
-    emptyState.textContent = "입결 데이터를 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
+    emptyState.textContent = "입결 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
     dataCount.textContent = "오류";
+    prospectusCards.innerHTML = `<div class="empty-state">모집요강 데이터를 불러오지 못했습니다.</div>`;
     console.error(error);
   }
 }
@@ -595,6 +646,10 @@ searchForm.addEventListener("submit", (event) => {
 
 [roundFilter, trackFilter, regionFilter, keywordInput, reachFilter, gradeInput].forEach((element) => {
   element.addEventListener("input", applyFilters);
+});
+
+[prospectusRegionFilter, prospectusKeywordInput].forEach((element) => {
+  element.addEventListener("input", applyProspectusFilters);
 });
 
 sortFilter.addEventListener("input", () => {
