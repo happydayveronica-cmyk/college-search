@@ -7,7 +7,7 @@ const SEMESTERS = [
 ];
 const CAREER_SEMESTERS = SEMESTERS.filter((semester) => ["s21", "s22", "s31"].includes(semester.id));
 const DEFAULT_SUBJECTS = 5;
-const ACHIEVEMENTS = ["A", "B", "C", "D", "E"];
+const ACHIEVEMENTS = ["A", "B", "C"];
 
 const state = {
   rows: [],
